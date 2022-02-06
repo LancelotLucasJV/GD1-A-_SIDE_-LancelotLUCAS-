@@ -1,0 +1,487 @@
+<!doctype html> 
+<html lang="en"> 
+<head> 
+    <meta charset="UTF-8" />
+    <title>BLUE HELL</title>
+    <script src="//cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
+    <style type="text/css">
+        body {
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+
+<script type="text/javascript">
+
+var config = {
+    type: Phaser.AUTO,
+    width: 1920,
+    height: 1080,
+    physics: {
+        default: 'arcade',
+        arcade: {
+            gravity: { y: 400 },
+            debug: false
+        }
+    },
+    
+    input : {gamepad:true},
+    scene: {
+        preload: preload,
+        create: create,
+        update: update
+    }
+};
+    
+var tilesets;
+    
+//Commande
+var cursors;
+var cursors2;
+var paddle;
+var padConnected;
+var onGround ;
+    
+var position_base = true;
+var saut = false;
+var torpille1 = false  
+
+// état joueur
+    
+
+var degat = false;
+var fin = false;
+var compteur = 60;
+var Torpille2 = false;
+    
+//vie
+var pv_max = 2;
+var pv = pv_max;
+var vie;
+var timedEvent;
+    
+// vitesse joueur/////////////////
+    
+var vitesse_joueur = 600;
+var vitesse_saut = 600;
+var gravite_joueur = 400;
+var vitessetorpille = false;
+
+var game = new Phaser.Game(config);
+         
+function preload (){
+        
+    this.load.image('BACKGROUND FULL', 'assets/background/BACKGROUND FULL.png');
+    this.load.image('menu', 'assets/background/menu.png');
+    
+    this.load.image('vie_vide', 'assets/vie/vie_vide.png');
+    this.load.image('vie_partiel', 'assets/vie/vie_partiel.png');
+    this.load.image('vie_complete', 'assets/vie/vie_complete.png');
+
+    this.load.spritesheet('stand', 'assets/spritesheet/stand.png', { frameWidth: 125, frameHeight: 150 });
+    this.load.spritesheet('lostsoul', 'assets/spritesheet/lostsoul.png', { frameWidth: 138, frameHeight: 70 });
+    this.load.spritesheet('saut', 'assets/spritesheet/saut.png', { frameWidth: 99/2, frameHeight: 150 });
+    this.load.spritesheet('death', 'assets/spritesheet/death.png', { frameWidth: 210, frameHeight: 150 });
+    this.load.spritesheet('torpedo', 'assets/spritesheet/torpedo.png', { frameWidth: 64, frameHeight: 80 });
+    
+    this.load.image("fuel","assets/item/fuel.png");
+    
+    
+    this.load.image('tiles','assets/tiles/tileset.png');
+    this.load.image('armspike','assets/tiles/armspike.png');
+    this.load.tilemapTiledJSON('map','assets/tiles/level.json');
+    
+    
+}
+
+function create (){
+    
+    //vie = this.add.image(200,80,'vie_partiel').setDepth(3).setScrollFactor(0);
+    //this.add.image(200,80,'vie_partiel').setDepth(1).setScrollFactor(0);   
+    /*this.add  
+    .text(100, 200, "Arrow keys or WASD to move & jump", {
+        font: "18px monospace",
+        fill: "#000000",
+        padding: { x: 20, y: 10 },
+        backgroundColor: "#ffffff"
+      })
+    .setDepth(1)
+      .setScrollFactor(0);*/
+    
+         
+     // BACKGROUND ///////////////
+    
+    
+    this.add.image(9622/2, 5376/2, 'BACKGROUND FULL');
+    
+         
+     // MENU /////////////////////
+    
+    
+    menu = this.add.image(640,360, 'menu')
+    .setDepth(3)
+    .setScrollFactor(0);
+    //this.add.image(960*2, 300, 'BACKGROUND FULL');
+    
+
+         
+     // tilesets ////////////////
+    
+    
+    const map = this.make.tilemap({key : 'map'});
+    const tileset = map.addTilesetImage('tilesets','tiles');
+    
+    zone_fin = map.createDynamicLayer('zone_fin',tileset, 0, 0);
+    
+    pique_haut.setCollisionByExclusion(-1,true)
+    pique_bas.setCollisionByExclusion(-1,true)
+    tilesets.setCollisionByExclusion(-1,true)
+    zone_fin.setCollisionByExclusion(-1,true)
+
+    
+    pique_haut.setCollisionByProperty({ collides: true });
+    pique_bas.setCollisionByProperty({ collides: true });
+    tilesets.setCollisionByProperty({ collides: false });
+    zone_fin.setCollisionByProperty({ collides: true });
+
+    
+         
+     // CARACTERISTIQUE JOUEUR ///
+    
+    
+    //player = this.physics.add.sprite(9000, 100, 'saut');
+    player = this.physics.add.sprite(500, 5000, 'saut');
+    //player = this.physics.add.sprite(1000, 500, 'saut');
+    
+    
+    player.body.setGravityY(gravite_joueur)
+    
+    player.setBounce(0.01);
+    player.setCollideWorldBounds(false);
+    
+    this.physics.add.collider(player, zone_fin, verif_fin);
+    
+         
+     // ANIME JOUEUR /////////////
+    
+    
+    this.anims.create({
+        key: 'course',
+        frames: this.anims.generateFrameNumbers('stand', { start: 0, end: 15 }),
+        frameRate: 30,
+        repeat: -1
+    });
+
+        
+    this.anims.create({
+        key: 'saut',
+        frames: this.anims.generateFrameNumbers('saut', { start: 16, end: 18 }),
+        frameRate: 30,
+        repeat: -1
+    });
+    
+    this.anims.create({
+        key: 'torpedo',
+        frames: this.anims.generateFrameNumbers('torpedo', { start: 19, end: 32 }),
+        frameRate: 30,
+        repeat: -1
+    });
+    
+    this.anims.create({
+        key: 'death',
+        frames: this.anims.generateFrameNumbers('death', { start: 0, end: 11 }),
+        frameRate: 20,
+        repeat: -1
+    });
+    
+    
+        
+    
+         
+     // enemy //////////////////
+    
+    
+    this.anims.create({
+        key: 'lostsoul',
+        frames: this.anims.generateFrameNumbers('lostsoul', { start: 0, end: 0 }),
+        frameRate: 30,
+        repeat: -1
+    });
+    
+    enemyObjects = map.getObjectLayer('enemy').objects;
+    this.enemy = this.physics.add.group({
+         allowGravity: true
+     }); 
+    
+    for (const enemy of enemyObjects) {
+
+        this.enemy.create(enemy.x, enemy.y, 'lostsoul')
+            .setOrigin(0.5,0.5)
+            .setDepth(1)
+            .setScale(1)
+            .setGravityY(300)
+    }
+
+    this.physics.world.addCollider(player, this.enemy, degatlostsoul, null, this)
+    //this.physics.add.collider(player, this.enemy, mortlostsoul)
+    this.physics.add.collider(this.enemy, tilesets);
+    
+         
+     // CONTROLE /////////////////
+    
+
+    cursors = this.input.keyboard.createCursorKeys();
+    cursors2 = this.input.keyboard.addKeys('Z,Q,S,D,SPACE'); 
+    
+    
+         
+     // CAMERA ///////////////////
+ 
+
+    this.cameras.main.startFollow(player);
+    this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
+
+     // ITEM FUEL ///////
+    
+    
+    fuelObjects = map.getObjectLayer('fuel').objects;
+    this.fuel = this.physics.add.group({
+         allowGravity: true
+     }); 
+    
+    for (const fuel of fuelObjects) {
+
+        this.fuel.create(fuel.x, fuel.y, 'fuel')
+            .setOrigin(0.5,0.5)
+            .setDepth(1)
+            .setScale(1)
+            .setGravityY(300)
+    }
+    
+    this.physics.add.collider(player, this.fuel, collectfuel)
+    this.physics.add.collider(this.fuel, tilesets);
+    
+    /*vie = this.physics.add.group({
+        key: 'fuel',
+        repeat: 1,
+        setXY: { x: 300, y: 0}
+    });
+        
+    this.physics.add.collider(vie, tilesets);
+    this.physics.add.overlap(player, vie,affichevie, null, this);
+    pvText = this.add.text(16, 16, 'Pv: ' + pv, { fontSize: '32px', fill: '#000' });*/
+     
+}
+
+    
+function update (){
+    
+    onGround = player.body.blocked.down;
+    onRight = player.body.blocked.right;
+    onLeft = player.body.blocked.left;
+    
+         
+     //  MENU2 ///////////////
+ 
+    
+    this.input.on('pointerdown', function (pointer) {
+        menu.destroy();
+    })
+    
+         
+     // CONTROLE CLAVIER /////////
+     
+    
+     //position neutre /////////////////////
+    {
+        player.setVelocityX(0);
+
+    }
+        
+            //saut /////////////////////
+    if (cursors.up.isDown && onGround || cursors2.Z.isDown && onGround || cursors2.SPACE.isDown && onGround )
+    {
+        player.setVelocityY(-vitesse_saut);
+
+     }
+                 //torpedo /////////////////////
+
+     if (cursors.up.isDown && onGround || cursors2.Z.isDown && onGround || cursors2.S.isDown && onGround )
+    
+         
+     // CONTROLE PAD /////////////
+    
+    
+    this.input.gamepad.once('connected', function (pad) {
+        paddle = pad;
+        padConnected = true;
+    });    
+    
+    if (padConnected) {
+                        
+        if (paddle.right || cursors.right.isDown || cursors2.D.isDown){
+               
+        }
+        /*else{
+                
+            player.setVelocityX(0);
+
+        } */
+        if (paddle.A && onGround || cursors.up.isDown && onGround || cursors2.Z.isDown && onGround || cursors2.SPACE.isDown && onGround || paddle.up && onGround){
+                
+             player.setVelocityY(-vitesse_saut);
+        }
+    }
+
+     //  ETAT JOUEUR ///////
+    
+    if (onGround) {
+
+    (position_base == false) 
+    {
+            
+            player.anims.play('neutre', true);
+            player.setFlipX(false);
+        }
+         if (player.body.velocity.x > 0){
+            
+            player.anims.play('course', true);
+            player.setFlipX(true);
+        } 
+        else if (position_base == true){
+            
+            player.anims.play('neutre', true);
+            player.setFlipX(true);
+        }
+    }
+    
+ 
+     // INVINCIBILITE ////////////
+    
+    if(invincible == true){
+        compteur-- ;
+        if(compteur == 0){
+            compteur = 60;
+            player.setTint(0xffffff);
+            invincible = false ;
+        }
+    }
+       
+     // UPDATE BARRE DE VIE //////
+
+    if (pv === 2){
+
+        Vie3.destroy();
+        
+        vie2 = this.add.image(200,80,'vie_complete') 
+            .setDepth(1)
+            .setScrollFactor(0);
+    }
+    
+    if (pv === 1){
+        
+
+        Vie1 = this.add.image(200,80,'vie_partiel') 
+            .setDepth(1)
+            .setScrollFactor(0);
+    }
+    
+    if (pv === 0){
+        
+        Vie0 = this.add.image(200,80,'vie_vide') 
+            .setDepth(1)
+            .setScrollFactor(0);
+        player.setVelocityX(0);
+        player.setVelocityY(0);
+        //player.anims.play('mort');
+        player.anims.play('death');
+        
+    }
+    
+         
+     // FIN DU NIVEAU ////////////
+    
+    if (fin){
+        Endingtext = this.add.text(1920/2, 700/2, 'TERMINER', { fontSize: '32px', fill: '#48E14E' }).setScrollFactor(0);
+        
+        player.setVelocityX(0);
+        player.setVelocityY(0);
+            }
+
+      /////////////////////////////   
+     // COMPORTEMENT enemy /////
+    /////////////////////////////
+    
+    for (const enemy of this.enemy.children.entries) {
+        if (enemy.body.blocked.right) {
+            enemy.direction = 'LEFT';
+        }
+
+        if (enemy.body.blocked.left) {
+            enemy.direction = 'RIGHT';
+        }
+
+        if (enemy.direction === 'RIGHT') {
+            enemy.setVelocityX(300);
+            enemy.setFlipX(true);
+            enemy.anims.play("lostsoul", true);
+        } else {
+            enemy.setVelocityX(-300);
+            enemy.setFlipX(false);
+            enemy.anims.play("lostsoul", true);
+        }
+       
+    
+
+}
+function verif_fin (player)
+{
+    fin = true;
+}
+
+}
+function collectfuel (player, torpedo)
+{
+    recuptorpedo = true;
+    torpedo.disableBody(true, true);
+    
+}
+
+function degatlostsoul (player, enemy)
+{     
+    if (attaque == true){
+        enemy.disableBody(true, true);
+    }
+
+    else if (invincible === false)
+    {
+        invincible = true;
+        pv--;
+        player.setTint(0xff0000);
+    }
+
+}
+/*function mortlostsoul (player, lostsoul)
+{   
+    if (attaque){
+        enemy.disableBody(true, true);
+    }
+
+}*/ 
+function onEvent (){
+    degat = true;
+    if(invincible == true){
+        compteur-- ;
+        if(compteur == 0){
+            compteur = 60;
+            player.setTint(0xffffff);
+            invincible = false ;
+            degat = true;
+        }
+    }
+}
+</script>
+
+</body>
+</html>
